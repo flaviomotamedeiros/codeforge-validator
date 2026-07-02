@@ -1,0 +1,49 @@
+name: Validate ex1003 — Estrutura de Dados — Grafo
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: "URL do repositório do grupo"
+        required: true
+      group_submission_id:
+        description: "ID da submissão do grupo"
+        required: true
+      webhook_token:
+        description: "Token do webhook"
+        required: true
+      webhook_url:
+        description: "URL do webhook de retorno"
+        required: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validador
+        uses: actions/checkout@v4
+
+      - name: Clonar repositório do grupo
+        run: git clone --depth=1 "${{ inputs.repo_url }}" repo
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências (se houver)
+        working-directory: repo
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Validar
+        id: validate
+        run: python tests/ex1003.py
+
+      - name: Reportar resultado
+        if: always()
+        run: |
+          curl -s -X POST "${{ inputs.webhook_url }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"groupSubmissionId\":\"${{ inputs.group_submission_id }}\",\"token\":\"${{ inputs.webhook_token }}\",\"passed\":${{ steps.validate.outputs.passed || 'false' }},\"output\":\"${{ steps.validate.outputs.output || 'Erro ao executar a validacao' }}\"}" || true
