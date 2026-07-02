@@ -1,4 +1,4 @@
-name: Validate ex1002 — API Gestão de Biblioteca
+name: Validate ex1002 — Simulador de Sistema de Arquivos
 
 on:
   workflow_dispatch:
@@ -32,28 +32,9 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Instalar dependências
-        working-directory: repo
-        run: npm install
-
-      - name: Subir servidor
-        working-directory: repo
-        env:
-          PORT: "3000"
-        run: |
-          npm start &
-          echo $! > /tmp/server.pid
-          sleep 3
-
       - name: Validar
         id: validate
-        env:
-          PORT: "3000"
         run: node tests/ex1002.js
-
-      - name: Parar servidor
-        if: always()
-        run: kill $(cat /tmp/server.pid) 2>/dev/null || true
 
       - name: Reportar resultado
         if: always()
