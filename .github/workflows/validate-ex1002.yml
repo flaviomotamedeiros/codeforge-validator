@@ -1,0 +1,63 @@
+name: Validate ex1002 — API Gestão de Biblioteca
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: "URL do repositório do grupo"
+        required: true
+      group_submission_id:
+        description: "ID da submissão do grupo"
+        required: true
+      webhook_token:
+        description: "Token do webhook"
+        required: true
+      webhook_url:
+        description: "URL do webhook de retorno"
+        required: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validador
+        uses: actions/checkout@v4
+
+      - name: Clonar repositório do grupo
+        run: git clone --depth=1 "${{ inputs.repo_url }}" repo
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependências
+        working-directory: repo
+        run: npm install
+
+      - name: Subir servidor
+        working-directory: repo
+        env:
+          PORT: "3000"
+        run: |
+          npm start &
+          echo $! > /tmp/server.pid
+          sleep 3
+
+      - name: Validar
+        id: validate
+        env:
+          PORT: "3000"
+        run: node tests/ex1002.js
+
+      - name: Parar servidor
+        if: always()
+        run: kill $(cat /tmp/server.pid) 2>/dev/null || true
+
+      - name: Reportar resultado
+        if: always()
+        run: |
+          curl -s -X POST "${{ inputs.webhook_url }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"groupSubmissionId\":\"${{ inputs.group_submission_id }}\",\"token\":\"${{ inputs.webhook_token }}\",\"passed\":${{ steps.validate.outputs.passed || 'false' }},\"output\":\"${{ steps.validate.outputs.output || 'Erro ao executar a validacao' }}\"}" || true
